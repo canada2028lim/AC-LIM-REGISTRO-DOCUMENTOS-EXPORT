@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recepción de Documentos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --primary:#1f6f54;
+    --primary-dark:#15503c;
+    --bg:#f4f6f5;
+    --card:#ffffff;
+    --text:#1c2521;
+    --muted:#6b7670;
+    --border:#dfe4e1;
+    --danger:#c0392b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:20px 14px 60px;
+  }
+  .wrap{width:100%;max-width:480px;}
+  header{text-align:center;margin-bottom:18px;}
+  header img.logo{height:54px;margin-bottom:8px;}
+  header h1{font-size:1.3rem;margin:0 0 4px;}
+  header p{margin:0;color:var(--muted);font-size:.9rem;}
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:16px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+
+  #reader{width:100%;border-radius:10px;overflow:hidden;}
+
+  .btn{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:opacity .15s;
+  }
+  .btn:active{opacity:.85;}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-outline{background:#fff;color:var(--primary);border:2px solid var(--primary);margin-top:10px;}
+  .btn-secondary{background:#eef1f0;color:var(--text);margin-top:8px;}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+
+  .divider{display:flex;align-items:center;gap:10px;margin:14px 0;}
+  .divider span{flex:1;height:1px;background:var(--border);}
+  .divider p{margin:0;font-size:.8rem;color:var(--muted);white-space:nowrap;}
+
+  .scan-result{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background:#eaf6f0;
+    border:1px solid #bfe3cf;
+    color:var(--primary-dark);
+    padding:10px 12px;
+    border-radius:10px;
+    font-size:.88rem;
+    margin-bottom:14px;
+    word-break:break-all;
+  }
+
+  label.field-label{display:block;font-size:.85rem;font-weight:600;margin:14px 0 6px;}
+  label.field-label.first{margin-top:0;}
+  input[type=text],input[type=tel]{
+    width:100%;
+    padding:12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:1rem;
+    background:#fff;
+  }
+  input:focus{outline:2px solid var(--primary);outline-offset:1px;}
+
+  .doc-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .doc-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px;
+    cursor:pointer;
+    background:#fff;
+    user-select:none;
+  }
+  .doc-item input{width:18px;height:18px;accent-color:var(--primary);}
+  .doc-item.checked{border-color:var(--primary);background:#eaf6f0;}
+  .doc-item span{font-weight:600;font-size:.95rem;}
+
+  .hint{font-size:.78rem;color:var(--muted);margin-top:4px;}
+  .error-msg{color:var(--danger);font-size:.85rem;margin-top:6px;display:none;}
+
+  .status{
+    text-align:center;
+    font-size:.88rem;
+    padding:12px;
+    border-radius:10px;
+    margin-top:12px;
+    display:none;
+  }
+  .status.ok{display:block;background:#eaf6f0;color:var(--primary-dark);font-weight:600;}
+  .status.sending{display:block;background:#eef1f0;color:var(--muted);}
+  .status.fail{display:block;background:#fbeceb;color:var(--danger);}
+
+  .hidden{display:none !important;}
+  footer{text-align:center;color:var(--muted);font-size:.75rem;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Recepción de Documentos</h1>
+    <p>Completa tus datos para registrar la entrega</p>
+  </header>
+
+  <!-- PASO 1: ESCANEO O CÓDIGO MANUAL -->
+  <div class="card" id="scanCard">
+    <div id="reader"></div>
+    <button class="btn btn-primary" id="startScanBtn">
+      📷 Iniciar escaneo de cámara
+    </button>
+    <p class="hint" style="text-align:center;margin-top:8px;">Acepta el permiso de cámara cuando tu navegador lo solicite.</p>
+
+    <div class="divider"><span></span><p>o ingresa el código manualmente</p><span></span></div>
+
+    <input type="text" id="manualCode" placeholder="Ej: AWB-2024-001 (opcional)" style="margin-bottom:10px;">
+    <button class="btn btn-outline" id="manualBtn">Continuar al formulario →</button>
+  </div>
+
+  <!-- PASO 2: FORMULARIO -->
+  <div class="card hidden" id="formCard">
+    <div class="scan-result" id="scanResultBox">
+      ✅ <span>Código: <strong id="scanResultText"></strong></span>
+    </div>
+
+    <label class="field-label first">Nombre</label>
+    <input type="text" id="nombre" placeholder="Ej. Juan">
+
+    <label class="field-label">Apellido</label>
+    <input type="text" id="apellido" placeholder="Ej. Pérez">
+
+    <label class="field-label">Teléfono</label>
+    <input type="tel" id="telefono" placeholder="Ej. 987654321">
+
+    <label class="field-label">¿Qué documento estás dejando?</label>
+    <div class="doc-list" id="docList">
+      <label class="doc-item" data-val="AWB">
+        <input type="checkbox" value="AWB"><span>AWB</span>
+      </label>
+      <label class="doc-item" data-val="WAREHOUSE">
+        <input type="checkbox" value="WAREHOUSE"><span>WAREHOUSE</span>
+      </label>
+      <label class="doc-item" data-val="FACTURA">
+        <input type="checkbox" value="FACTURA"><span>FACTURA</span>
+      </label>
+    </div>
+    <p class="hint">Puedes seleccionar más de uno.</p>
+    <p class="error-msg" id="formError"></p>
+
+    <button class="btn btn-primary" id="submitBtn" style="margin-top:16px;">Registrar entrega</button>
+    <button class="btn btn-secondary" id="rescanBtn">← Volver / Nuevo código</button>
+
+    <div class="status" id="statusBox"></div>
+  </div>
+
+  <footer>Los datos se registran automáticamente con fecha y hora</footer>
+</div>
+
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGUD7GzaFfr5igQXfx2CrRsmPdKkQCwdyWv219PAUP3mzPqmED_m8CukhCr3IEGYlOGQ/exec";
+
+let html5QrCode;
+let scannedCode = "";
+
+const scanCard  = document.getElementById('scanCard');
+const formCard  = document.getElementById('formCard');
+const statusBox = document.getElementById('statusBox');
+const formError = document.getElementById('formError');
+const submitBtn = document.getElementById('submitBtn');
+
+/* ── Detecta código en la URL (viene del QR escaneado) ─────────── */
+function getURLCode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('codigo') || params.get('code') || "";
+}
+
+function mostrarFormulario(codigo) {
+  scannedCode = codigo || "";
+  const resultBox = document.getElementById('scanResultBox');
+  if (scannedCode) {
+    document.getElementById('scanResultText').textContent = scannedCode;
+    resultBox.style.display = 'flex';
+  } else {
+    resultBox.style.display = 'none';
+  }
+  scanCard.classList.add('hidden');
+  formCard.classList.remove('hidden');
+  stopScanner();
+}
+
+/* ── Al cargar: si hay código en la URL, ir directo al form ─────── */
+window.addEventListener('load', () => {
+  const urlCode = getURLCode();
+  if (urlCode) {
+    mostrarFormulario(urlCode);
+  }
+});
+
+/* ── Escáner de cámara ──────────────────────────────────────────── */
+document.getElementById('startScanBtn').addEventListener('click', () => {
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 150 } },
+    (decoded) => { mostrarFormulario(decoded); },
+    () => {}
+  ).then(() => {
+    document.getElementById('startScanBtn').classList.add('hidden');
+  }).catch(err => {
+    alert("No se pudo acceder a la cámara. Ingresa el código manualmente.\n" + err);
+  });
+});
+
+function stopScanner() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => html5QrCode.clear()).catch(() => {});
+    html5QrCode = null;
+  }
+}
+
+/* ── Botón manual ───────────────────────────────────────────────── */
+document.getElementById('manualBtn').addEventListener('click', () => {
+  const code = document.getElementById('manualCode').value.trim();
+  mostrarFormulario(code);
+});
+
+/* ── Enter en campo manual ──────────────────────────────────────── */
+document.getElementById('manualCode').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('manualBtn').click();
+});
+
+/* ── Volver ─────────────────────────────────────────────────────── */
+document.getElementById('rescanBtn').addEventListener('click', () => {
+  formCard.classList.add('hidden');
+  scanCard.classList.remove('hidden');
+  document.getElementById('startScanBtn').classList.remove('hidden');
+  document.getElementById('reader').innerHTML = '';
+  statusBox.className = 'status';
+  submitBtn.classList.remove('hidden');
+  submitBtn.disabled = false;
+  document.querySelectorAll('#docList input').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('.doc-item').forEach(d => d.classList.remove('checked'));
+  ['nombre','apellido','telefono','manualCode'].forEach(id => document.getElementById(id).value = '');
+  formError.style.display = 'none';
+});
+
+/* ── Checkboxes ─────────────────────────────────────────────────── */
+document.querySelectorAll('.doc-item').forEach(item => {
+  item.addEventListener('click', (e) => {
+    const cb = item.querySelector('input');
+    if (e.target !== cb) cb.checked = !cb.checked;
+    item.classList.toggle('checked', cb.checked);
+  });
+});
+
+/* ── Envío del formulario ───────────────────────────────────────── */
+submitBtn.addEventListener('click', async () => {
+  const nombre   = document.getElementById('nombre').value.trim();
+  const apellido = document.getElementById('apellido').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+  const docs     = Array.from(document.querySelectorAll('#docList input:checked')).map(c => c.value);
+
+  if (!nombre || !apellido || !telefono) {
+    formError.textContent = "Por favor completa nombre, apellido y teléfono.";
+    formError.style.display = 'block';
+    return;
+  }
+  if (docs.length === 0) {
+    formError.textContent = "Selecciona al menos un tipo de documento.";
+    formError.style.display = 'block';
+    return;
+  }
+  formError.style.display = 'none';
+
+  const payload = {
+    codigo: scannedCode,
+    nombre, apellido, telefono,
+    documentos: docs.join(" / "),
+    fechaHoraCliente: new Date().toISOString()
+  };
+
+  submitBtn.disabled = true;
+  statusBox.className = 'status sending';
+  statusBox.textContent = '⏳ Registrando...';
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    statusBox.className = 'status ok';
+    statusBox.textContent = '✅ ¡Entrega registrada correctamente! Gracias.';
+    submitBtn.classList.add('hidden');
+  } catch (err) {
+    statusBox.className = 'status fail';
+    statusBox.textContent = '❌ Error al registrar: ' + err.message;
+    submitBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
